@@ -1,160 +1,123 @@
 using System.Collections;
 using UnityEngine;
-using DinosBattle.Core.Enums;
 
-namespace DinosBattle.Systems.Animation
+namespace DinosBattle.Animation
 {
-    /// <summary>
-    /// Add this to every dinosaur prefab root.
-    /// Fill in the trigger names from YOUR Animator Controller.
-    /// Handles its own animations and sounds — no shared config needed.
-    /// </summary>
+    // Add to every dinosaur prefab root.
+    // Fill in trigger names to match your Animator Controller.
     public class DinoAnimator : MonoBehaviour
     {
         [Header("Animator")]
         public Animator animator;
 
-        [Header("Animator Trigger Names (match your controller exactly)")]
+        [Header("Trigger Names")]
         public string attackTrigger  = "Attack";
         public string hurtTrigger    = "Hurt";
         public string deathTrigger   = "Death";
         public string victoryTrigger = "Victory";
-        public string idleTrigger    = "Idle";
 
         [Header("Sounds")]
         public AudioClip attackSound;
         public AudioClip hurtSound;
         public AudioClip deathSound;
 
-        [Header("Clip Durations (seconds — match your animation clip lengths)")]
+        [Header("Durations  (match your clip lengths)")]
         public float attackDuration = 0.6f;
         public float hurtDuration   = 0.3f;
         public float deathDuration  = 0.8f;
 
         private AudioSource _audio;
-
-        // Captured when the battle actually starts, not in Start()
-        // because the factory moves the prefab to its spawn position AFTER Start() runs.
-        private Vector3 _startPos;
-        private bool    _startPosCaptured;
+        private Vector3     _origin;
+        private bool        _originCaptured;
 
         private void Awake()
         {
-            if (animator == null)
-                animator = GetComponentInChildren<Animator>();
-
-            _audio = GetComponent<AudioSource>();
-            if (_audio == null)
-                _audio = gameObject.AddComponent<AudioSource>();
-
+            if (animator == null) animator = GetComponentInChildren<Animator>();
+            _audio = gameObject.AddComponent<AudioSource>();
             _audio.playOnAwake = false;
         }
 
-        // Called by UnityAnimationHandler
+        // Called by AttackCommand / AbilityCommand.
+        // Origin is captured lazily on first call because the factory moves
+        // the prefab to its spawn position after Awake() runs.
         public IEnumerator Play(AnimationType type, Transform target = null)
         {
-            // Lazily capture spawn position on first play — by then the factory
-            // has already moved the prefab to its correct world position.
-            if (!_startPosCaptured)
-            {
-                _startPos         = transform.position;
-                _startPosCaptured = true;
-            }
+            if (!_originCaptured) { _origin = transform.position; _originCaptured = true; }
 
             switch (type)
             {
                 case AnimationType.Attack:
-                    TriggerAnim(attackTrigger);
+                case AnimationType.Ability:
+                    Trigger(attackTrigger);
                     PlaySound(attackSound);
                     yield return Lunge(target);
                     break;
 
                 case AnimationType.Hurt:
-                    TriggerAnim(hurtTrigger);
+                    Trigger(hurtTrigger);
                     PlaySound(hurtSound);
                     yield return Shake();
                     break;
 
                 case AnimationType.Death:
-                    TriggerAnim(deathTrigger);
+                    Trigger(deathTrigger);
                     PlaySound(deathSound);
                     yield return new WaitForSeconds(deathDuration);
                     break;
 
                 case AnimationType.Victory:
-                    TriggerAnim(victoryTrigger);
+                    Trigger(victoryTrigger);
                     yield return new WaitForSeconds(0.5f);
                     break;
-                case AnimationType.Idle:
-                    TriggerAnim(idleTrigger);
-                    break;
-
-                    // No trigger — just a placeholder for idle time between actions.   
             }
         }
 
-        private void TriggerAnim(string triggerName)
+        private void Trigger(string name)
         {
-            if (animator != null && !string.IsNullOrEmpty(triggerName))
-                animator.SetTrigger(triggerName);
+            if (animator != null && !string.IsNullOrEmpty(name))
+                animator.SetTrigger(name);
         }
 
         private void PlaySound(AudioClip clip)
         {
-            if (_audio != null && clip != null)
-                _audio.PlayOneShot(clip);
+            if (clip != null) _audio.PlayOneShot(clip);
         }
 
-        // Lunge toward target then return. Duration matches attackDuration
-        // so the Animator clip and procedural motion finish together.
+        // Lunges 1.2 units toward target then returns. Total time = attackDuration.
         private IEnumerator Lunge(Transform target)
         {
-            Vector3 dir  = target != null
-                ? (target.position - _startPos).normalized
-                : transform.forward;
+            Vector3 dir  = target != null ? (target.position - _origin).normalized : transform.forward;
+            Vector3 dest = _origin + dir * 1.2f;
 
-            Vector3 dest     = _startPos + dir * 1.2f;
-            float   halfTime = attackDuration * 0.4f;   // 40% forward, 60% return
+            float forward = attackDuration * 0.4f;
+            float back    = Mathf.Max(0.05f, attackDuration - forward - 0.05f);
 
-            // Lunge forward
-            float t = 0f;
-            while (t < halfTime)
-            {
-                transform.position = Vector3.Lerp(_startPos, dest, t / halfTime);
-                t += Time.deltaTime;
-                yield return null;
-            }
-
-            // Hold briefly at impact point
+            yield return Move(_origin, dest, forward);
             yield return new WaitForSeconds(0.05f);
+            yield return Move(dest, _origin, back);
 
-            // Return to start — use remaining clip time
-            float returnTime = attackDuration - halfTime - 0.05f;
-            if (returnTime < 0.05f) returnTime = 0.05f;
-
-            t = 0f;
-            while (t < returnTime)
-            {
-                transform.position = Vector3.Lerp(dest, _startPos, t / returnTime);
-                t += Time.deltaTime;
-                yield return null;
-            }
-
-            transform.position = _startPos;
+            transform.position = _origin;
         }
 
+        // Shakes horizontally, fading out over hurtDuration.
         private IEnumerator Shake()
         {
-            float t = 0f;
-            while (t < hurtDuration)
+            for (float t = 0; t < hurtDuration; t += Time.deltaTime)
             {
-                float fade = 1f - (t / hurtDuration);
-                float x    = Mathf.Sin(t * 80f) * 0.15f * fade;
-                transform.position = _startPos + new Vector3(x, 0f, 0f);
-                t += Time.deltaTime;
+                float x = Mathf.Sin(t * 80f) * 0.15f * (1f - t / hurtDuration);
+                transform.position = _origin + new Vector3(x, 0f, 0f);
                 yield return null;
             }
-            transform.position = _startPos;
+            transform.position = _origin;
+        }
+
+        private IEnumerator Move(Vector3 from, Vector3 to, float duration)
+        {
+            for (float t = 0; t < duration; t += Time.deltaTime)
+            {
+                transform.position = Vector3.Lerp(from, to, t / duration);
+                yield return null;
+            }
         }
     }
 }

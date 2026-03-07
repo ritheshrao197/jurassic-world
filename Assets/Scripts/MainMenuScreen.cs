@@ -1,7 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
-using DinosBattle.Game;
 
 namespace DinosBattle.UI.Screens
 {

@@ -2,94 +2,31 @@ using System;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace DinosBattle.Game
+namespace DinosBattle
 {
-    // ═══════════════════════════════════════════════════════════════════════
-    //  GAME STATES
-    // ═══════════════════════════════════════════════════════════════════════
-
-    public enum GameState
-    {
-        MainMenu,
-        Loading,
-        Battle,
-        Paused,
-        Victory,
-        Defeat
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════
-    //  GAME STATE MANAGER  (Singleton — persists across scenes)
-    // ═══════════════════════════════════════════════════════════════════════
-
-    /// <summary>
-    /// Central game lifecycle controller.
-    /// Owns scene transitions, pause state, and time scale.
-    /// Raises OnStateChanged so any screen can react without polling.
-    ///
-    /// Singleton — survives scene loads. One instance for the entire session.
-    /// </summary>
+    // Singleton that persists across scenes.
+    // Owns game state, scene transitions, and time scale.
     public class GameStateManager : MonoBehaviour
     {
-        // ── Singleton ─────────────────────────────────────────────────────────
         public static GameStateManager Instance { get; private set; }
 
-        // ── Scene names (must match Build Settings) ───────────────────────────
-        [Header("Scene Names")]
-        [SerializeField] private string mainMenuSceneName = "MainMenu";
-        [SerializeField] private string battleSceneName   = "BattleScene";
+        [SerializeField] private string mainMenuScene = "MainMenu";
+        [SerializeField] private string battleScene   = "BattleScene";
 
-        // ── State ─────────────────────────────────────────────────────────────
         public GameState CurrentState { get; private set; } = GameState.MainMenu;
-
-        // ── Events ────────────────────────────────────────────────────────────
-        public event Action<GameState, GameState> OnStateChanged;  // (previous, next)
-
-        // ── Unity ─────────────────────────────────────────────────────────────
+        public event Action<GameState, GameState> OnStateChanged;
 
         private void Awake()
         {
-            if (Instance != null && Instance != this)
-            {
-                Destroy(gameObject);
-                return;
-            }
+            if (Instance != null && Instance != this) { Destroy(gameObject); return; }
             Instance = this;
             DontDestroyOnLoad(gameObject);
         }
 
-        // ═════════════════════════════════════════════════════════════════════
-        //  PUBLIC API
-        // ═════════════════════════════════════════════════════════════════════
-
-        public void StartGame()
-        {
-            SetState(GameState.Loading);
-            SceneManager.LoadScene(battleSceneName);
-            // BattleScene's Awake/Start will call SetState(GameState.Battle)
-        }
-
-        public void GoToMainMenu()
-        {
-            Time.timeScale = 1f;
-            SetState(GameState.Loading);
-            SceneManager.LoadScene(mainMenuSceneName);
-        }
-
-        public void PauseGame()
-        {
-            if (CurrentState != GameState.Battle) return;
-            Time.timeScale = 0f;
-            SetState(GameState.Paused);
-        }
-
-        public void ResumeGame()
-        {
-            if (CurrentState != GameState.Paused) return;
-            Time.timeScale = 1f;
-            SetState(GameState.Battle);
-        }
-
+        public void StartGame()     { SetState(GameState.Loading); SceneManager.LoadScene(battleScene); }
+        public void GoToMainMenu()  { Time.timeScale = 1f; SetState(GameState.Loading); SceneManager.LoadScene(mainMenuScene); }
+        public void PauseGame()     { if (CurrentState == GameState.Battle)  { Time.timeScale = 0f; SetState(GameState.Paused); } }
+        public void ResumeGame()    { if (CurrentState == GameState.Paused)  { Time.timeScale = 1f; SetState(GameState.Battle); } }
         public void QuitGame()
         {
 #if UNITY_EDITOR
@@ -99,14 +36,12 @@ namespace DinosBattle.Game
 #endif
         }
 
-        public void NotifyBattleStarted()  => SetState(GameState.Battle);
-        public void NotifyPlayerVictory()  => SetState(GameState.Victory);
-        public void NotifyPlayerDefeat()   => SetState(GameState.Defeat);
+        public void NotifyBattleStarted() => SetState(GameState.Battle);
+        public void NotifyPlayerVictory() => SetState(GameState.Victory);
+        public void NotifyPlayerDefeat()  => SetState(GameState.Defeat);
 
-        public bool IsPaused     => CurrentState == GameState.Paused;
-        public bool IsInBattle   => CurrentState == GameState.Battle || CurrentState == GameState.Paused;
-
-        // ── Private ───────────────────────────────────────────────────────────
+        public bool IsPaused   => CurrentState == GameState.Paused;
+        public bool IsInBattle => CurrentState == GameState.Battle || CurrentState == GameState.Paused;
 
         private void SetState(GameState next)
         {

@@ -1,69 +1,58 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
-using DinosBattle.Core.Enums;
-using DinosBattle.Core.Interfaces;
-using DinosBattle.Core.Models;
+using DinosBattle.Animation;
 
-namespace DinosBattle.Core
+namespace DinosBattle
 {
-    // Pure C# — no MonoBehaviour, fully testable
+    // Pure C# — no MonoBehaviour, fully testable.
+    // Owns health, abilities, status effects, and cooldowns for one combatant.
     public class CombatUnit
     {
-        public string     Name          { get; }
-        public TeamId     Team          { get; }
-        public int        SlotIndex     { get; }
-        public string     UnitId        { get; } = Guid.NewGuid().ToString();
-        public StatBlock  BaseStats     { get; }
-        public int        CurrentHealth { get; private set; }
-        public bool       IsAlive       => CurrentHealth > 0;
-        public float      HealthPercent => (float)CurrentHealth / BaseStats.MaxHealth;
-        public GameObject ModelInstance { get; set; }
+        public string      Name          { get; }
+        public TeamId      Team          { get; }
+        public StatBlock   Stats         { get; }
+        public int         CurrentHealth { get; private set; }
+        public bool        IsAlive       => CurrentHealth > 0;
+        public float       HealthPercent => (float)CurrentHealth / Stats.MaxHealth;
+        public GameObject  Model         { get; set; }
+        public DinoAnimator Animator     { get; set; }
 
-        // Abilities
-        private readonly List<IAbility> _abilities = new List<IAbility>();
-        public IReadOnlyList<IAbility>   Abilities  => _abilities;
-
-        // Status effects
+        private readonly List<IAbility>      _abilities     = new List<IAbility>();
         private readonly List<IStatusEffect> _statusEffects = new List<IStatusEffect>();
-
-        // Cooldowns
         private readonly Dictionary<string, int> _cooldowns = new Dictionary<string, int>();
 
-        public CombatUnit(string name, TeamId team, int slot, StatBlock stats)
+        public IReadOnlyList<IAbility> Abilities => _abilities;
+
+        public CombatUnit(string name, TeamId team, StatBlock stats)
         {
             Name          = name;
             Team          = team;
-            SlotIndex     = slot;
-            BaseStats     = stats;
+            Stats         = stats;
             CurrentHealth = stats.MaxHealth;
         }
 
-        public void ApplyDamage(int amount)
+        // ── Health ────────────────────────────────────────────────────────────
+
+        public void TakeDamage(int amount)
         {
             if (!IsAlive || amount <= 0) return;
             CurrentHealth = Mathf.Max(0, CurrentHealth - amount);
         }
 
-        public void RestoreHealth(int amount)
+        public void Heal(int amount)
         {
             if (!IsAlive || amount <= 0) return;
-            CurrentHealth = Mathf.Min(BaseStats.MaxHealth, CurrentHealth + amount);
+            CurrentHealth = Mathf.Min(Stats.MaxHealth, CurrentHealth + amount);
         }
 
-        public void AddStatusEffect(IStatusEffect effect)
+        // ── Status Effects ────────────────────────────────────────────────────
+
+        public void AddStatus(IStatusEffect effect)
         {
             var existing = _statusEffects.FirstOrDefault(e => e.Type == effect.Type);
-            if (existing != null)
-            {
-                existing.Stack(effect);
-            }
-            else
-            {
-                _statusEffects.Add(effect);
-                effect.OnApply(this);
-            }
+            if (existing != null) existing.Stack(effect);
+            else { _statusEffects.Add(effect); effect.OnApply(this); }
         }
 
         public bool HasStatus(StatusEffectType type) =>
@@ -71,32 +60,54 @@ namespace DinosBattle.Core
 
         public void TickStatusEffects(bool isTurnStart)
         {
-            var expired = new List<IStatusEffect>();
             foreach (var e in _statusEffects)
             {
                 if (isTurnStart) e.OnTurnStart(this);
                 else             e.OnTurnEnd(this);
-                if (e.IsExpired) expired.Add(e);
             }
-            foreach (var e in expired)
-            {
-                _statusEffects.Remove(e);
-                e.OnRemove(this);
-            }
+
+            var expired = _statusEffects.Where(e => e.IsExpired).ToList();
+            foreach (var e in expired) { _statusEffects.Remove(e); e.OnRemove(this); }
         }
 
-        public void AddAbility(IAbility ability)          => _abilities.Add(ability);
-        public bool IsOnCooldown(string name)              => _cooldowns.TryGetValue(name, out int cd) && cd > 0;
-        public void SetCooldown(string name, int turns)    => _cooldowns[name] = turns;
+        // ── Abilities & Cooldowns ─────────────────────────────────────────────
+
+        public void AddAbility(IAbility ability) => _abilities.Add(ability);
+
+        public bool IsOnCooldown(string name) =>
+            _cooldowns.TryGetValue(name, out int cd) && cd > 0;
+
+        public void SetCooldown(string name, int turns) => _cooldowns[name] = turns;
 
         public void TickCooldowns()
         {
-            var keys = new List<string>(_cooldowns.Keys);
-            foreach (var k in keys)
-                if (_cooldowns[k] > 0) _cooldowns[k]--;
+            foreach (var key in new List<string>(_cooldowns.Keys))
+                if (_cooldowns[key] > 0) _cooldowns[key]--;
         }
 
         public override string ToString() =>
-            $"{Name}[{Team}] HP:{CurrentHealth}/{BaseStats.MaxHealth} SPD:{BaseStats.Speed}";
+            $"{Name} [{Team}] HP:{CurrentHealth}/{Stats.MaxHealth} SPD:{Stats.Speed}";
+    }
+
+    // Immutable stat snapshot — passed by value, safe to cache.
+    public readonly struct StatBlock
+    {
+        public readonly int   MaxHealth;
+        public readonly int   Attack;
+        public readonly int   Defense;
+        public readonly int   Speed;
+        public readonly float CritChance;
+        public readonly float CritMultiplier;
+
+        public StatBlock(int hp, int atk, int def, int spd,
+                         float crit = 0.1f, float critMult = 1.5f)
+        {
+            MaxHealth      = hp;
+            Attack         = atk;
+            Defense        = def;
+            Speed          = spd;
+            CritChance     = crit;
+            CritMultiplier = critMult;
+        }
     }
 }

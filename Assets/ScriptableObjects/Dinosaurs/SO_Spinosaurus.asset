@@ -16,9 +16,8 @@ MonoBehaviour:
   portrait: {fileID: 0}
   modelPrefab: {fileID: 5194709734325235266, guid: c168893117b7c244c871046b9788ae32, type: 3}
   maxHealth: 100
-  attackPower: 30
+  attack: 50
   defense: 6
   speed: 12
   critChance: 0.1
   critMultiplier: 1.5
-  damageType: 0

@@ -1,70 +1,61 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
-using DinosBattle.Core;
-using DinosBattle.Core.Enums;
-using DinosBattle.Core.Interfaces;
+using DinosBattle.Battle;
+using DinosBattle.Combat;
 using DinosBattle.Data;
-using DinosBattle.Commands;
-using DinosBattle.Game;
-using DinosBattle.Infrastructure.EventBus;
-using DinosBattle.Infrastructure.ServiceLocator;
 using DinosBattle.Input;
-using DinosBattle.Systems;
-using DinosBattle.Systems.Combat;
-using DinosBattle.Systems.Spawn;
 
 namespace DinosBattle
 {
+    // Drives the battle loop: setup → turns → win check.
+    // Pulls all dependencies from ServiceLocator (wired by BattleInstaller).
     [DefaultExecutionOrder(-100)]
     public class BattleCoordinator : MonoBehaviour
     {
         [Header("Teams")]
-        [SerializeField] private DinosaurData[] playerTeamData;
-        [SerializeField] private DinosaurData[] enemyTeamData;
+        [SerializeField] private DinosaurData[] playerTeam;
+        [SerializeField] private DinosaurData[] enemyTeam;
 
         [Header("Spawn Points")]
-        [SerializeField] private Transform[] playerSpawnPoints;
-        [SerializeField] private Transform[] enemySpawnPoints;
+        [SerializeField] private Transform[] playerSpawns;
+        [SerializeField] private Transform[] enemySpawns;
 
         [Header("Pacing")]
-        [SerializeField] private float enemyTurnDelay  = 1.2f;
-        [SerializeField] private float postActionDelay = 0.5f;
+        [SerializeField] private float enemyDelay  = 1.2f;
+        [SerializeField] private float actionDelay = 0.5f;
 
-        private BattleEventBus     _bus;
-        private ITurnSystem        _turns;
-        private ITurnOrderStrategy _turnStrategy;
-        private IAnimationHandler  _anim;
-        private ITargetSelector    _selector;
-        private CombatUnitFactory  _factory;
+        private EventBus           _bus;
+        private TurnSystem         _turns;
         private CombatResolver     _resolver;
+        private ITargetSelector    _selector;
+        private UnitFactory        _factory;
         private PlayerInputHandler _input;
 
-        private BattleTeam _playerTeam;
-        private BattleTeam _enemyTeam;
+        private List<CombatUnit> _players = new List<CombatUnit>();
+        private List<CombatUnit> _enemies = new List<CombatUnit>();
 
-        private int  _turnCount;
-        private bool _battleOver;
+        private int  _turn;
+        private bool _over;
 
-        private IBattleCommand _playerCommand;
-        private bool           _playerReady;
+        private IBattleCommand _pendingCmd;
+        private bool           _cmdReady;
 
         private void Start()
         {
-            _bus          = BattleServices.Get<BattleEventBus>();
-            _turns        = BattleServices.Get<ITurnSystem>();
-            _turnStrategy = BattleServices.Get<ITurnOrderStrategy>();
-            _anim         = BattleServices.Get<IAnimationHandler>();
-            _selector     = BattleServices.Get<ITargetSelector>();
-            _factory      = BattleServices.Get<CombatUnitFactory>();
-            _resolver     = BattleServices.Get<CombatResolver>();
-            _input        = BattleServices.Get<PlayerInputHandler>();
+            _bus      = ServiceLocator.Get<EventBus>();
+            _turns    = ServiceLocator.Get<TurnSystem>();
+            _resolver = ServiceLocator.Get<CombatResolver>();
+            _selector = ServiceLocator.Get<ITargetSelector>();
+            _factory  = ServiceLocator.Get<UnitFactory>();
+            _input    = ServiceLocator.Get<PlayerInputHandler>();
 
-            _bus.Subscribe<BattleEndedEvent>(e => _battleOver = true);
+            _bus.Subscribe<BattleEndedEvent>(e => _over = true);
             StartCoroutine(RunBattle());
         }
+
+        // ── Battle Loop ───────────────────────────────────────────────────────
 
         private IEnumerator RunBattle()
         {
@@ -72,136 +63,184 @@ namespace DinosBattle
             _bus.Publish(new BattleStartedEvent());
             GameStateManager.Instance?.NotifyBattleStarted();
 
-            while (!_battleOver)
+            while (!_over)
             {
                 var unit = _turns.Current;
                 if (unit == null || !unit.IsAlive) { _turns.Advance(); yield return null; continue; }
 
-                _turnCount++;
-                _bus.Publish(new TurnStartedEvent(unit, _turnCount));
+                _turn++;
+                _bus.Publish(new TurnStartedEvent(unit, _turn));
 
-                // Tick status effects at turn start
                 unit.TickStatusEffects(true);
-                if (_battleOver) break;
+                if (_over) break;
 
-                // Skip if stunned
                 if (unit.HasStatus(StatusEffectType.Stun))
                 {
-                    Debug.Log($"[Battle] {unit.Name} is stunned.");
-                    unit.TickStatusEffects(false);
-                    unit.TickCooldowns();
-                    _turns.Advance();
+                    EndTurn(unit);
                     continue;
                 }
 
                 IBattleCommand cmd;
                 if (unit.Team == TeamId.Player)
                 {
-                    yield return WaitForPlayerInput(unit);
-                    cmd = _playerCommand;
+                    yield return GetPlayerCommand(unit);
+                    cmd = _pendingCmd;
                 }
                 else
                 {
-                    yield return new WaitForSeconds(enemyTurnDelay);
+                    yield return new WaitForSeconds(enemyDelay);
                     cmd = GetEnemyCommand(unit);
                 }
 
                 if (cmd != null)
                 {
                     yield return cmd.Execute();
-                    yield return new WaitForSeconds(postActionDelay);
+                    yield return new WaitForSeconds(actionDelay);
                 }
 
-                if (_battleOver) break;
-
-                // Tick status effects at turn end
-                unit.TickStatusEffects(false);
-                unit.TickCooldowns();
-                CheckWinCondition();
-                if (!_battleOver) _turns.Advance();
+                if (_over) break;
+                EndTurn(unit);
+                CheckWin();
             }
         }
 
-        private IEnumerator WaitForPlayerInput(CombatUnit unit)
+        private void EndTurn(CombatUnit unit)
         {
-            _playerCommand = null;
-            _playerReady   = false;
+            unit.TickStatusEffects(false);
+            unit.TickCooldowns();
+            if (!_over) _turns.Advance();
+        }
 
-            Action<PlayerAction> onAction = null;
-            onAction = action =>
+        // ── Player Input ──────────────────────────────────────────────────────
+
+        private IEnumerator GetPlayerCommand(CombatUnit unit)
+        {
+            _pendingCmd = null;
+            _cmdReady   = false;
+
+            Action<PlayerAction> handler = null;
+            handler = action =>
             {
-                _playerCommand = BuildPlayerCommand(action, unit);
-                _playerReady   = true;
-                _input.OnActionSubmitted -= onAction;
+                _pendingCmd = BuildCommand(action, unit);
+                _cmdReady   = true;
+                _input.OnActionSubmitted -= handler;
             };
-            _input.OnActionSubmitted += onAction;
+
+            _input.OnActionSubmitted += handler;
             _input.BeginWaitingForInput(unit);
 
-            while (!_playerReady && !_battleOver)
-                yield return null;
+            while (!_cmdReady && !_over) yield return null;
 
-            if (_battleOver)
-            {
-                _input.OnActionSubmitted -= onAction;
-                _input.CancelInput();
-            }
+            if (_over) { _input.OnActionSubmitted -= handler; _input.CancelInput(); }
         }
 
-        private IBattleCommand BuildPlayerCommand(PlayerAction action, CombatUnit unit)
+        private IBattleCommand BuildCommand(PlayerAction action, CombatUnit unit)
         {
-            if (action.Type == PlayerActionType.UseAbility
-                && action.AbilityIndex >= 0
-                && action.AbilityIndex < unit.Abilities.Count)
-            {
-                return new UseAbilityCommand(unit, unit.Abilities[action.AbilityIndex],
-                    _enemyTeam.Members, _selector, _anim);
-            }
-            return new BasicAttackCommand(unit, _enemyTeam.Members, _resolver, _anim);
+            if (action.Type == PlayerActionType.Ability
+                && action.Index >= 0 && action.Index < unit.Abilities.Count)
+                return new AbilityCommand(unit, unit.Abilities[action.Index], _enemies, _selector);
+
+            return new AttackCommand(unit, _enemies, _resolver);
         }
+
+        // ── Enemy AI ──────────────────────────────────────────────────────────
 
         private IBattleCommand GetEnemyCommand(CombatUnit unit)
         {
             foreach (var ability in unit.Abilities)
                 if (ability.CanUse(unit))
-                    return new UseAbilityCommand(unit, ability, _playerTeam.Members, _selector, _anim);
+                    return new AbilityCommand(unit, ability, _players, _selector);
 
-            return new BasicAttackCommand(unit, _playerTeam.Members, _resolver, _anim);
+            return new AttackCommand(unit, _players, _resolver);
         }
+
+        // ── Setup ─────────────────────────────────────────────────────────────
 
         private IEnumerator Setup()
         {
-            _playerTeam = new BattleTeam(TeamId.Player, _bus);
-            _enemyTeam  = new BattleTeam(TeamId.Enemy,  _bus);
+            _players = new List<CombatUnit>(_factory.CreateTeam(playerTeam, TeamId.Player, playerSpawns));
+            _enemies = new List<CombatUnit>(_factory.CreateTeam(enemyTeam,  TeamId.Enemy,  enemySpawns));
 
-            var pu = _factory.CreateTeam(playerTeamData, TeamId.Player, playerSpawnPoints);
-            var eu = _factory.CreateTeam(enemyTeamData,  TeamId.Enemy,  enemySpawnPoints);
+            foreach (var u in _players) _bus.Publish(new UnitRegisteredEvent(u));
+            foreach (var u in _enemies) _bus.Publish(new UnitRegisteredEvent(u));
 
-            foreach (var u in pu) _playerTeam.AddMember(u);
-            foreach (var u in eu) _enemyTeam.AddMember(u);
-
-            foreach (var u in pu) _bus.Publish(new UnitRegisteredEvent(u));
-            foreach (var u in eu) _bus.Publish(new UnitRegisteredEvent(u));
-
-            var all = new List<CombatUnit>(pu);
-            all.AddRange(eu);
-            _turns.Initialize(all, _turnStrategy);
+            var all = new List<CombatUnit>(_players);
+            all.AddRange(_enemies);
+            _turns.Initialize(all);
             yield break;
         }
 
-        private void CheckWinCondition()
+        // ── Win Condition ─────────────────────────────────────────────────────
+
+        private void CheckWin()
         {
-            if (_playerTeam.IsWiped)
+            bool playerWiped = _players.TrueForAll(u => !u.IsAlive);
+            bool enemyWiped  = _enemies.TrueForAll(u => !u.IsAlive);
+
+            if (playerWiped || enemyWiped)
             {
-                _battleOver = true;
-                _bus.Publish(new BattleEndedEvent(BattleOutcome.EnemyVictory, _turnCount));
-                GameStateManager.Instance?.NotifyPlayerDefeat();
+                _over = true;
+                var outcome = enemyWiped ? BattleOutcome.PlayerVictory : BattleOutcome.EnemyVictory;
+                _bus.Publish(new BattleEndedEvent(outcome));
+
+                if (enemyWiped) GameStateManager.Instance?.NotifyPlayerVictory();
+                else            GameStateManager.Instance?.NotifyPlayerDefeat();
             }
-            else if (_enemyTeam.IsWiped)
-            {
-                _battleOver = true;
-                _bus.Publish(new BattleEndedEvent(BattleOutcome.PlayerVictory, _turnCount));
-                GameStateManager.Instance?.NotifyPlayerVictory();
-            }
+        }
+    }
+
+    // ── Commands ──────────────────────────────────────────────────────────────
+
+    public interface IBattleCommand { IEnumerator Execute(); }
+
+    // Basic attack: resolve damage → play attacker animation → play defender reaction.
+    public class AttackCommand : IBattleCommand
+    {
+        private readonly CombatUnit               _attacker;
+        private readonly IReadOnlyList<CombatUnit> _enemies;
+        private readonly CombatResolver            _resolver;
+
+        public AttackCommand(CombatUnit attacker, IReadOnlyList<CombatUnit> enemies, CombatResolver resolver)
+        { _attacker = attacker; _enemies = enemies; _resolver = resolver; }
+
+        public IEnumerator Execute()
+        {
+            var result = _resolver.ResolveAttack(_attacker, _enemies);
+            if (!result.HasValue) yield break;
+
+            var defender = result.Value.Defender;
+
+            if (_attacker.Animator != null)
+                yield return _attacker.Animator.Play(AnimationType.Attack,
+                    defender.Model != null ? defender.Model.transform : null);
+
+            if (defender.Animator != null)
+                yield return defender.Animator.Play(defender.IsAlive ? AnimationType.Hurt : AnimationType.Death);
+        }
+    }
+
+    // Ability: play animation → execute ability logic → apply cooldown.
+    public class AbilityCommand : IBattleCommand
+    {
+        private readonly CombatUnit               _user;
+        private readonly IAbility                 _ability;
+        private readonly IReadOnlyList<CombatUnit> _enemies;
+        private readonly ITargetSelector          _selector;
+
+        public AbilityCommand(CombatUnit user, IAbility ability,
+                               IReadOnlyList<CombatUnit> enemies, ITargetSelector selector)
+        { _user = user; _ability = ability; _enemies = enemies; _selector = selector; }
+
+        public IEnumerator Execute()
+        {
+            if (!_ability.CanUse(_user)) yield break;
+
+            if (_user.Animator != null)
+                yield return _user.Animator.Play(AnimationType.Ability);
+
+            var targets = _selector.SelectMany(_user, _enemies, _ability.Targeting);
+            yield return _ability.Execute(_user, targets);
+            _user.SetCooldown(_ability.Name, _ability.CooldownTurns);
         }
     }
 }

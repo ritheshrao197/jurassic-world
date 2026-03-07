@@ -1,4 +1,3 @@
-using DinosBattle.Core.Enums;
 
 namespace DinosBattle.Core.Models
 {

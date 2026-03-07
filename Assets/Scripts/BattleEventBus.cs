@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using DinosBattle.Core;
-using DinosBattle.Core.Enums;
 using DinosBattle.Core.Models;
 using DinosBattle.Core.Interfaces;
 

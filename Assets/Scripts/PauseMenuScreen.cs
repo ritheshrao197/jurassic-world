@@ -1,6 +1,5 @@
 using UnityEngine;
 using UnityEngine.UI;
-using DinosBattle.Game;
 
 namespace DinosBattle.UI.Screens
 {
