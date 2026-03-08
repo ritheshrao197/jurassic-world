@@ -34,7 +34,6 @@ This document describes the current codebase under `Assets/Scripts` and how runt
   - `EventBus.cs`
   - `Interfaces.cs`
   - `ObjectPool.cs`
-  - `BattleEventBus.cs` (legacy/commented out)
 - `Data`
   - `DinosaurData.cs`
   - `UnitFactory.cs`
