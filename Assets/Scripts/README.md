@@ -1,238 +1,283 @@
-# 🦕 DinosBattle V2 — Scalable Turn-Based Battle System
-### Rebuilt with Production-Grade Architecture
+# DinosBattle Codebase Documentation
 
----
+This document describes the current codebase under `Assets/Scripts` and how runtime systems work together.
 
-## Design Patterns Used (& Why)
+## Project Snapshot
 
-| Pattern | Where | Benefit |
-|---|---|---|
-| **Event Bus (Mediator)** | `BattleEventBus` | Zero coupling between all systems |
-| **Service Locator / DI** | `BattleServiceLocator` / `BattleInstaller` | Swap any implementation with 1 line |
-| **Strategy** | `ITurnOrderStrategy`, `IDamageCalculator`, `ITargetSelector` | Change game feel without touching orchestrator |
-| **Command** | `IBattleCommand`, `BasicAttackCommand`, etc. | Undoable, replayable, loggable actions |
-| **Observer** | `CombatUnit` events + EventBus | UI/Audio react without knowing about combat |
-| **Factory** | `CombatUnitFactory` | Construction logic separated from entities |
-| **Template Method** | `BaseStatusEffect`, `BaseAbility` | Shared structure, override only what differs |
-| **Object Pool** | `ObjectPool<T>`, `GameObjectPool` | Zero GC from VFX/projectiles at scale |
-| **MVP** | `BattleUIPresenter` | UI has zero combat knowledge |
-| **Composition Root** | `BattleInstaller` | Only ONE place knows about concrete types |
-| **Value Object** | `StatBlock`, `DamageResult`, `AbilityPayload` | Immutable, safe to pass and cache |
-| **Decorator** | `StatModifier` stacking on `StatBlock` | Buffs/debuffs non-destructive |
+- Engine: Unity `2022.3.62f3`
+- Main scenes:
+  - `Assets/Scenes/MainMenu.unity`
+  - `Assets/Scenes/BattleScene.unity`
+- Build settings order:
+  1. `MainMenu`
+  2. `BattleScene`
+- Core gameplay model: turn-based dinosaur combat with teams, abilities, status effects, UI-driven player actions, and simple AI.
 
----
+## Scripts Folder Structure
 
-## Architecture Diagram
+`Assets/Scripts` is organized by feature:
 
-```
-                    ┌─────────────────────────┐
-                    │     BattleInstaller      │  ← Composition Root
-                    │  (Registers ALL services)│
-                    └────────────┬────────────┘
-                                 │ creates & registers
-                    ┌────────────▼────────────┐
-                    │   BattleServiceLocator   │
-                    │  ITurnOrderStrategy      │
-                    │  IDamageCalculator       │
-                    │  ITargetSelector         │
-                    │  IAnimationHandler       │
-                    │  ITurnSystem             │
-                    │  CombatResolver          │
-                    │  CommandHistory          │
-                    │  BattleEventBus ◄────────┼─── ALL events flow through here
-                    └────────────┬────────────┘
-                                 │ injected into
-          ┌──────────────────────▼───────────────────────┐
-          │              BattleCoordinator                │
-          │  (thin orchestrator — drives state machine)   │
-          │  Builds IBattleCommand → Execute() → advance  │
-          └──────┬───────────┬───────────┬───────────────┘
-                 │           │           │
-          ┌──────▼──┐  ┌─────▼──┐  ┌────▼────────┐
-          │Turn     │  │Combat  │  │Animation    │
-          │System   │  │Resolve │  │Handler      │
-          │(Strategy│  │r       │  │(IAnimation  │
-          │pattern) │  │        │  │Handler)     │
-          └─────────┘  └────────┘  └─────────────┘
-                 │           │
-          ┌──────▼──┐  ┌─────▼──────────────────┐
-          │CombatUnit│  │DamageResult (value obj) │
-          │(Observer)│  │AttackResult published   │
-          │(Decorator│  │to EventBus              │
-          │for stats)│  └─────────────────────────┘
-          └──────────┘
-                 │ events
-          ┌──────▼─────────────────────────────────┐
-          │         BattleEventBus subscribers      │
-          │  BattleUIPresenter (MVP)                │
-          │  BattleLogger                           │
-          │  AudioManager (add: subscribe anywhere) │
-          │  AnalyticsTracker (add: no code change) │
-          └─────────────────────────────────────────┘
-```
+- `Animation`
+  - `DinoAnimator.cs`
+- `Battle`
+  - `BattleCoordinator.cs`
+  - `BattleInstaller.cs`
+  - `ServiceLocator.cs`
+  - `TurnSystem.cs`
+- `Combat`
+  - `Abilities.cs`
+  - `CombatResolver.cs`
+  - `StatusEffects.cs`
+- `Core`
+  - `CombatUnit.cs`
+  - `Enums.cs`
+  - `EventBus.cs`
+  - `Interfaces.cs`
+  - `ObjectPool.cs`
+  - `BattleEventBus.cs` (legacy/commented out)
+- `Data`
+  - `DinosaurData.cs`
+  - `UnitFactory.cs`
+- `Editor`
+  - `uGUITools.cs`
+- `Game`
+  - `GameStateManager.cs`
+- `Input`
+  - `PlayerInputHandler.cs`
+- `UI`
+  - `BattleHUD.cs`
+  - `MainMenuScreen.cs`
+  - `PauseMenuScreen.cs`
 
----
+## Runtime Architecture
 
-## Project Structure
+### 1. Composition root and dependency wiring
 
-```
-DinosBattleV2/Scripts/
-│
-├── Core/
-│   ├── Enums/BattleEnums.cs         ← All enums in one place
-│   ├── Interfaces/IBattleInterfaces.cs ← ALL contracts defined here
-│   ├── Models/BattleModels.cs       ← Immutable value types
-│   └── CombatUnit.cs                ← Runtime entity (Observer + Decorator)
-│
-├── Infrastructure/
-│   ├── EventBus/BattleEventBus.cs   ← Mediator pattern (pub/sub)
-│   ├── ServiceLocator/              ← DI container (swap for Zenject)
-│   ├── StateMachine/StateMachine.cs ← Generic FSM
-│   ├── ObjectPool/ObjectPool.cs     ← Generic + GameObject pools
-│   ├── BattleInstaller.cs           ← Composition Root ← SINGLE wiring point
-│   └── BattleLogger.cs              ← IBattleLogger impl (swappable)
-│
-├── Data/
-│   └── DinosaurData.cs              ← ScriptableObject (designer-facing)
-│
-├── Systems/
-│   ├── BattleTeam.cs                ← Team aggregate root
-│   ├── Turn/TurnSystem.cs           ← + 3 ITurnOrderStrategy implementations
-│   ├── Combat/CombatResolver.cs     ← + 2 IDamageCalculator + 2 ITargetSelector
-│   ├── StatusEffects/StatusEffects.cs ← Poison, Burn, Stun, Shield, Regen
-│   ├── Abilities/Abilities.cs       ← TailWhip, HealRoar, PoisonBite, Rampage
-│   ├── Animation/UnityAnimationHandler.cs ← IAnimationHandler impl
-│   └── Spawn/CombatUnitFactory.cs   ← Factory pattern
-│
-├── Commands/
-│   └── BattleCommands.cs            ← BasicAttack, UseAbility, TickStatus
-│
-├── Presenters/
-│   └── BattleUIPresenter.cs         ← MVP Presenter (pure EventBus subscriber)
-│
-├── BattleCoordinator.cs             ← Thin orchestrator (replaces BattleManager)
-│
-└── Tests/Editor/BattleCoreTests.cs  ← NUnit tests (no UnityEngine dep)
-```
+`BattleInstaller` runs early (`DefaultExecutionOrder(-200)`) in battle scene and registers services into `ServiceLocator`:
 
----
+- `EventBus`
+- `ITargetSelector` (`RandomTargetSelector` or `LowestHpTargetSelector`)
+- `IDamageCalculator` (`StandardDamageCalculator`)
+- `CombatResolver`
+- `TurnSystem`
+- `UnitFactory`
+- `PlayerInputHandler` (adds component if missing)
 
-## Scaling Examples
+This creates one clear place where runtime implementations are selected.
 
-### Add a 6v6 battle
-```csharp
-// BattleCoordinator Inspector: drag 6 DinosaurData assets to each team array.
-// Zero code changes required.
-```
+### 2. Battle orchestration
 
-### Swap turn order to initiative rolls
-```csharp
-// BattleInstaller.cs — change ONE line:
-[SerializeField] private TurnOrderMode turnOrderMode = TurnOrderMode.InitiativeRoll;
-// SpeedBasedTurnOrder() → InitiativeRollTurnOrder()
-```
+`BattleCoordinator` (`DefaultExecutionOrder(-100)`) is the central loop controller:
 
-### Add a new damage formula
-```csharp
-public class PercentHpDamageCalculator : IDamageCalculator
-{
-    public DamageResult Calculate(CombatUnit atk, CombatUnit def, AbilityPayload p)
-    {
-        int dmg = Mathf.RoundToInt(def.CurrentHealth * 0.25f);  // always 25% current HP
-        return new DamageResult(atk, def, dmg, dmg, 0, false, false, p.OverrideDamageType);
-    }
-}
-// Register in BattleInstaller — nothing else changes.
-```
+1. Resolves dependencies from `ServiceLocator`
+2. Builds teams from `DinosaurData[]` via `UnitFactory`
+3. Publishes `UnitRegisteredEvent` for each unit
+4. Initializes `TurnSystem` with player/enemy lists
+5. Publishes `BattleStartedEvent`
+6. Runs turn loop until battle over
+7. Publishes `BattleEndedEvent` and notifies `GameStateManager`
 
-### Add a new status effect
-```csharp
-public class FreezeEffect : BaseStatusEffect
-{
-    public override string           EffectName => "Freeze";
-    public override StatusEffectType Type       => StatusEffectType.Stun;   // reuse enum or extend it
-    
-    public FreezeEffect(int turns) : base(turns) { }
-    
-    public override void OnTurnStart(CombatUnit owner)
-        => Debug.Log($"{owner.Name} is frozen solid!");
-}
-// Use: unit.AddStatusEffect(new FreezeEffect(2));
-```
+The loop is coroutine-based, not `Update` polling, and each turn:
+
+- publishes `TurnStartedEvent`
+- ticks start-of-turn status effects
+- skips stunned units
+- gets player command from UI input or AI command for enemy
+- executes command (attack/ability)
+- ticks end-of-turn statuses and cooldowns
+- advances turn
+- checks win condition
+
+### 3. Data model and combat domain
+
+`CombatUnit` is a pure C# entity:
+
+- identity: `Name`, `Team`
+- stats: immutable `StatBlock`
+- runtime state: `CurrentHealth`, alive flag, abilities, statuses, cooldowns
+- visual links: `Model` and `DinoAnimator`
+
+Key responsibilities:
+
+- health operations (`TakeDamage`, `Heal`)
+- status lifecycle (`AddStatus`, `TickStatusEffects`, expiration handling)
+- cooldown lifecycle (`SetCooldown`, `TickCooldowns`)
+
+### 4. Turn management
+
+`TurnSystem` builds an alternating queue:
+
+- alive players sorted by speed descending
+- alive enemies sorted by speed descending
+- queue interleaves: player, enemy, player, enemy...
+- if team sizes differ, extra units append at end of round
+- dead units are skipped while advancing
+- queue rebuilds each round
+
+This supports alternating team turns while preserving speed priority inside each team.
+
+### 5. Combat resolution and targeting
+
+`CombatResolver` owns damage application and event publishing:
+
+- selects target via `ITargetSelector`
+- computes damage via `IDamageCalculator`
+- applies damage
+- emits `AttackExecutedEvent`, `HealthChangedEvent`, and `UnitDefeatedEvent` when needed
+- logs combat details with `Debug.Log`
+
+Current strategies:
+
+- `StandardDamageCalculator`: `(Attack - Defense * 0.5) * multiplier`, random variance, crit chance/multiplier
+- `RandomTargetSelector`: random alive target
+- `LowestHpTargetSelector`: deterministic low-HP focus
+
+### 6. Abilities and status effects
+
+Abilities (`Abilities.cs`):
+
+- `TailWhipAbility`: AoE hit to all enemies, reduced power
+- `PoisonBiteAbility`: single-target boosted hit + poison
+- `HealRoarAbility`: self-heal by max HP percentage
+- `BaseAbility`: shared cooldown/availability shape
+
+Status effects (`StatusEffects.cs`):
+
+- `PoisonEffect`: damage over time at turn end
+- `StunEffect`: action denial for turns
+- `RegenEffect`: heal at turn start
+- `BaseStatusEffect`: lifecycle hooks (`OnApply`, `OnTurnStart`, `OnTurnEnd`, `OnRemove`) and stacking
+
+### 7. Input and command execution
+
+`PlayerInputHandler` is a bridge between UI and battle loop:
+
+- opens/closes input windows
+- tracks active acting unit
+- accepts attack or ability submission
+- validates ability index/cooldown before dispatch
+
+`BattleCoordinator` converts selected action to command objects:
+
+- `AttackCommand`
+- `AbilityCommand`
+
+Both commands are coroutine-based and include animation playback steps.
+
+### 8. Animation and presentation
+
+`DinoAnimator` drives action feedback:
+
+- triggers animator states (`Attack`, `Hurt`, `Death`, `Victory`)
+- optional sound effects
+- procedural lunge for attack/ability and shake for hurt
+
+`BattleHUD` is event-driven UI:
+
+- subscribes to `EventBus`
+- creates HP bars on unit registration
+- updates turn label, health bars, battle log
+- shows player action buttons when input window opens
+- enables/disables ability buttons by cooldown
+- shows result overlay on battle end
+
+Menu screens:
+
+- `MainMenuScreen`: play/quit wiring + fade-in
+- `PauseMenuScreen`: pause panel, state-reactive show/hide, Escape toggle
+
+### 9. Global state and scene transitions
+
+`GameStateManager` is a scene-persistent singleton:
+
+- states: `MainMenu`, `Loading`, `Battle`, `Paused`, `Victory`, `Defeat`
+- transitions scenes for start game/main menu
+- controls `Time.timeScale` for pause/resume
+- broadcasts `OnStateChanged`
+- handles editor/runtime quit paths
+
+## Event Model
+
+Defined in `Core/EventBus.cs`:
+
+- `BattleStartedEvent`
+- `BattleEndedEvent`
+- `UnitRegisteredEvent`
+- `TurnStartedEvent`
+- `AttackExecutedEvent`
+- `UnitDefeatedEvent`
+- `HealthChangedEvent`
+
+Events decouple battle logic from UI and any future subsystems (audio, analytics, VFX trackers).
+
+## Data Assets and Scene Wiring
+
+### Dinosaur data assets
+
+ScriptableObjects under `Assets/ScriptableObjects/Dinosaurs`:
+
+- `SO_TRex.asset`
+- `SO_Velociraptor.asset`
+- `SO_Triceratops.asset`
+- `SO_Spinosaurus.asset`
+
+Each `DinosaurData` contains:
+
+- identity (`dinoName`, portrait, prefab)
+- stats (`maxHealth`, `attack`, `defense`, `speed`, crit fields)
+
+### Prefabs used by scripts
+
+From `Assets/Prefabs`:
+
+- `HealthBarPrefab.prefab`
+- `AbilityButtonPrefab.prefab`
+- dinosaur prefabs (e.g., `Trex.prefab`, `triceraptor.prefab`, `velocirAPTR.prefab`, etc.)
+
+`UnitFactory` instantiates dinosaur prefabs and binds `DinoAnimator`.
+
+## Extending the System
+
+### Add a dinosaur
+
+1. Create new `DinosaurData` asset
+2. Assign model prefab and stats
+3. Add asset to `playerTeam` or `enemyTeam` in `BattleCoordinator`
+4. Add spawn point transforms as needed
 
 ### Add a new ability
-```csharp
-public class ThunderClawAbility : BaseAbility
-{
-    public override string        AbilityName   => "Thunder Claw";
-    public override int           CooldownTurns => 3;
-    public override AbilityTarget Targeting     => AbilityTarget.SingleEnemy;
 
-    public override IEnumerator Execute(CombatUnit user, IReadOnlyList<CombatUnit> targets)
-    {
-        var target  = targets.FirstOrDefault(t => t.IsAlive);
-        var payload = new AbilityPayload(this, DamageType.Electric, 1.8f);
-        GetResolver().ResolveAttack(user, target, payload);
-        target.AddStatusEffect(new StunEffect(1));
-        yield break;
-    }
-}
-```
+1. Implement `IAbility` (or derive from `BaseAbility`)
+2. Add logic in `Execute`
+3. Attach ability to units (currently done in `UnitFactory`)
 
-### Add an audio system
-```csharp
-// AudioManager.cs — no changes to any other file:
-public class AudioManager : MonoBehaviour
-{
-    private void OnEnable()
-    {
-        var bus = BattleServices.Get<BattleEventBus>();
-        bus.Subscribe<AttackExecutedEvent>(e => PlayAttackSound(e.Result));
-        bus.Subscribe<UnitDefeatedEvent>(e   => PlayDeathSound(e.Unit));
-    }
-}
-```
+### Add a new status effect
 
-### Add analytics
-```csharp
-public class BattleAnalytics : MonoBehaviour
-{
-    private void OnEnable()
-    {
-        var bus = BattleServices.Get<BattleEventBus>();
-        bus.Subscribe<BattleEndedEvent>(e =>
-            Analytics.CustomEvent("battle_completed", new Dictionary<string, object>
-            {
-                { "outcome", e.Outcome.ToString() },
-                { "turns",   e.TotalTurns }
-            }));
-    }
-}
-```
+1. Implement `IStatusEffect` (or derive from `BaseStatusEffect`)
+2. Apply via ability or combat logic
+3. Publish health/defeat events as needed for UI sync
 
----
+### Change targeting or damage rules
 
-## Running Tests
-1. Open Unity Test Runner: **Window > General > Test Runner**
-2. Select **Edit Mode**
-3. Run `DinosBattle.Tests.Editor` — tests all core logic with zero Unity dependencies
+- Targeting: create a new `ITargetSelector`, register it in `BattleInstaller`
+- Damage: create a new `IDamageCalculator`, register it in `BattleInstaller`
 
----
+## Notes on Legacy/Utility Files
 
-## Upgrade to Zenject / VContainer
-Replace `BattleInstaller.cs` composition with a proper DI Container:
-```csharp
-// VContainer example
-public class BattleLifetimeScope : LifetimeScope
-{
-    protected override void Configure(IContainerBuilder builder)
-    {
-        builder.Register<BattleEventBus>(Lifetime.Scoped);
-        builder.Register<SpeedBasedTurnOrder, ITurnOrderStrategy>(Lifetime.Scoped);
-        builder.Register<StandardDamageCalculator, IDamageCalculator>(Lifetime.Scoped);
-        builder.Register<CombatResolver>(Lifetime.Scoped);
-        // etc.
-    }
-}
-// All other files stay IDENTICAL — that's the power of interface-based DI.
-```
+- `Core/BattleEventBus.cs` is commented-out legacy code (inactive).
+- `Core/ObjectPool.cs` provides generic and GameObject pools; currently not wired into battle flow.
+- `Editor/uGUITools.cs` is editor-only utility for RectTransform anchor tools.
+
+## Current Design Characteristics
+
+- Modular and non-monolithic
+- Minimal update-loop coupling in battle logic
+- Scales to larger team sizes through list/array-based processing
+- Event-driven UI updates
+- Clear composition root for strategy swapping
+
+## Suggested Maintenance Practices
+
+- Keep `BattleInstaller` as single wiring point
+- Add EditMode tests for `TurnSystem`, `CombatResolver`, and status stacking logic
+- Prefer adding features via interfaces (`IAbility`, `IStatusEffect`, `ITargetSelector`, `IDamageCalculator`) to keep coordinator thin
