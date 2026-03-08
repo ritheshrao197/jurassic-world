@@ -84,7 +84,7 @@ namespace DinosBattle.Combat
 
             _bus.Publish(new AttackExecutedEvent(result));
             _bus.Publish(new HealthChangedEvent(target));
-            Debug.Log($"[Combat] {result}");
+            Debug.Log($"[Attack] {result}  |  {target.Name} HP: {target.CurrentHealth}/{target.Stats.MaxHealth}");
             return result;
         }
 
@@ -100,7 +100,7 @@ namespace DinosBattle.Combat
 
             _bus.Publish(new AttackExecutedEvent(result));
             _bus.Publish(new HealthChangedEvent(defender));
-            Debug.Log($"[Combat] {result}");
+            Debug.Log($"[Attack] {result}  |  {defender.Name} HP: {defender.CurrentHealth}/{defender.Stats.MaxHealth}");
             return result;
         }
     }

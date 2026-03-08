@@ -26,15 +26,19 @@ namespace DinosBattle
                Debug.Log($"[Factory] Spawning '{data.dinoName}' for {team} at {pos} with rotation {rot.eulerAngles}");
                   if(data.dinoName=="TRex")
                 {
-                   rot =Quaternion.Euler(0, 180, 0);
+                   rot =Quaternion.Euler(0, -150, 0);
                 }
                 else if (data.dinoName == "Velociraptor")
                 {
-                    rot = Quaternion.identity;
+                   rot =Quaternion.Euler(0, 130, 0);
+                }
+                 else if (data.dinoName == "Triceratops")
+                {
+                   rot =Quaternion.Euler(0, -130, 0);
                 }
                 else
                 {
-                 rot =   team == TeamId.Enemy ? Quaternion.Euler(0, 180, 0) : Quaternion.identity;
+                   rot =Quaternion.Euler(0, 80, 0);
                 }
                  var model = Object.Instantiate(data.modelPrefab, pos, rot);
                 model.name    = $"{team}_{data.dinoName}_{slot}";

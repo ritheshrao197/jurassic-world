@@ -70,12 +70,14 @@ namespace DinosBattle
 
                 _turn++;
                 _bus.Publish(new TurnStartedEvent(unit, _turn));
+                Debug.Log($"[Turn {_turn}] {unit.Name} ({unit.Team}) — HP: {unit.CurrentHealth}/{unit.Stats.MaxHealth}");
 
                 unit.TickStatusEffects(true);
                 if (_over) break;
 
                 if (unit.HasStatus(StatusEffectType.Stun))
                 {
+                    Debug.Log($"[Turn {_turn}] {unit.Name} is stunned — skipping turn.");
                     EndTurn(unit);
                     continue;
                 }
@@ -164,9 +166,7 @@ namespace DinosBattle
             foreach (var u in _players) _bus.Publish(new UnitRegisteredEvent(u));
             foreach (var u in _enemies) _bus.Publish(new UnitRegisteredEvent(u));
 
-            var all = new List<CombatUnit>(_players);
-            all.AddRange(_enemies);
-            _turns.Initialize(all);
+            _turns.Initialize(_players, _enemies);
             yield break;
         }
 
@@ -181,6 +181,7 @@ namespace DinosBattle
             {
                 _over = true;
                 var outcome = enemyWiped ? BattleOutcome.PlayerVictory : BattleOutcome.EnemyVictory;
+                Debug.Log($"[Battle] Over — {outcome}");
                 _bus.Publish(new BattleEndedEvent(outcome));
 
                 if (enemyWiped) GameStateManager.Instance?.NotifyPlayerVictory();
