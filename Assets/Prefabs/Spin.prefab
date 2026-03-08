@@ -3233,7 +3233,7 @@ GameObject:
   - component: {fileID: 8287573749216516907}
   - component: {fileID: 7056171905902521644}
   - component: {fileID: 9043526960526687491}
-  - component: {fileID: 2000402047465063689}
+  - component: {fileID: 7296015453308473901}
   m_Layer: 0
   m_Name: Spin
   m_TagString: Untagged
@@ -3487,7 +3487,7 @@ MonoBehaviour:
   throatTrigger: {fileID: 7056171905902521644}
   gutTrigger: {fileID: 7056171905902521644}
   legTwitchTrigger: {fileID: 7056171905902521644}
---- !u!114 &2000402047465063689
+--- !u!114 &7296015453308473901
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -3499,12 +3499,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c45dc71f7b7699348bf8ceb8e472b103, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  animator: {fileID: 3657684135465740552}
+  animator: {fileID: 0}
   attackTrigger: Attack
   hurtTrigger: Hurt
   deathTrigger: Death
   victoryTrigger: Victory
-  idleTrigger: Idle
   attackSound: {fileID: 0}
   hurtSound: {fileID: 0}
   deathSound: {fileID: 0}

@@ -2758,7 +2758,7 @@ GameObject:
   - component: {fileID: 601892200355920409}
   - component: {fileID: 8404171535094994964}
   - component: {fileID: 4469727181003626203}
-  - component: {fileID: 8832413951430289167}
+  - component: {fileID: 3130137322255615937}
   m_Layer: 0
   m_Name: velocirAPTR
   m_TagString: Untagged
@@ -3010,7 +3010,7 @@ MonoBehaviour:
   useTimerVariation: 1
   shapeTimer: 3
   blendSpeed: 1200
---- !u!114 &8832413951430289167
+--- !u!114 &3130137322255615937
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -3022,12 +3022,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c45dc71f7b7699348bf8ceb8e472b103, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  animator: {fileID: 4619955759386458519}
+  animator: {fileID: 0}
   attackTrigger: Attack
   hurtTrigger: Hurt
   deathTrigger: Death
   victoryTrigger: Victory
-  idleTrigger: Idle
   attackSound: {fileID: 0}
   hurtSound: {fileID: 0}
   deathSound: {fileID: 0}

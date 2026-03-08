@@ -398,7 +398,7 @@ GameObject:
   - component: {fileID: 4963071625319560618}
   - component: {fileID: 8299958479270472743}
   - component: {fileID: 4698627721596755949}
-  - component: {fileID: 4446913639579637409}
+  - component: {fileID: 18174936749067866}
   m_Layer: 0
   m_Name: triceraptor
   m_TagString: Untagged
@@ -612,7 +612,7 @@ MonoBehaviour:
   - {fileID: 8300000, guid: 6291226f03ede1640831fc68106b7990, type: 3}
   deathClips:
   - {fileID: 8300000, guid: cac59288a20ae7a4795fb1a253a11411, type: 3}
---- !u!114 &4446913639579637409
+--- !u!114 &18174936749067866
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -624,12 +624,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c45dc71f7b7699348bf8ceb8e472b103, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  animator: {fileID: 8299958479270472743}
+  animator: {fileID: 0}
   attackTrigger: Attack
   hurtTrigger: Hurt
   deathTrigger: Death
   victoryTrigger: Victory
-  idleTrigger: Idle
   attackSound: {fileID: 0}
   hurtSound: {fileID: 0}
   deathSound: {fileID: 0}

@@ -1262,7 +1262,7 @@ GameObject:
   - component: {fileID: 8321478910107604675}
   - component: {fileID: 2874086264801335631}
   - component: {fileID: 6818977446381085314}
-  - component: {fileID: 6328528861226762924}
+  - component: {fileID: 4549361028933507748}
   m_Layer: 0
   m_Name: Trex
   m_TagString: Untagged
@@ -1514,7 +1514,7 @@ MonoBehaviour:
   useTimerVariation: 1
   shapeTimer: 3
   blendSpeed: 1200
---- !u!114 &6328528861226762924
+--- !u!114 &4549361028933507748
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -1526,7 +1526,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c45dc71f7b7699348bf8ceb8e472b103, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  animator: {fileID: 5127151718791819350}
+  animator: {fileID: 0}
   attackTrigger: Attack
   hurtTrigger: Hurt
   deathTrigger: Death
