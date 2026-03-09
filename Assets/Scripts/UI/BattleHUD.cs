@@ -37,8 +37,8 @@ namespace DinosBattle.UI
         [SerializeField] private Button mainMenuButton;
         [SerializeField] private Button quitButton;
 
-        private EventBus _bus;
-        private PlayerInputHandler _input;
+        private EventBus _eventBus;
+        private PlayerInputHandler _playerInput;
         private readonly Dictionary<string, Slider> _sliders = new Dictionary<string, Slider>();
         private readonly Dictionary<string, TMP_Text> _hpLabels = new Dictionary<string, TMP_Text>();
         private readonly List<string> _log = new List<string>();
@@ -50,7 +50,7 @@ namespace DinosBattle.UI
 
         private void Awake()
         {
-            attackButton?.onClick.AddListener(() => _input?.SubmitAttack());
+            attackButton?.onClick.AddListener(() => _playerInput?.SubmitAttack());
             pauseButton?.onClick.AddListener(() => GameStateManager.Instance?.PauseGame());
             mainMenuButton?.onClick.AddListener(() => GameStateManager.Instance?.GoToMainMenu());
             quitButton?.onClick.AddListener(() => GameStateManager.Instance?.QuitGame());
@@ -61,102 +61,102 @@ namespace DinosBattle.UI
 
         private void OnEnable()
         {
-            if (!ServiceLocator.TryGet<EventBus>(out _bus)) return;
+            if (!ServiceLocator.TryGet<EventBus>(out _eventBus)) return;
 
-            _bus.Subscribe<BattleStartedEvent>(OnBattleStarted);
-            _bus.Subscribe<UnitRegisteredEvent>(OnUnitRegistered);
-            _bus.Subscribe<TurnStartedEvent>(OnTurnStarted);
-            _bus.Subscribe<AttackExecutedEvent>(OnAttackExecuted);
-            _bus.Subscribe<HealthChangedEvent>(OnHealthChanged);
-            _bus.Subscribe<UnitDefeatedEvent>(OnUnitDefeated);
-            _bus.Subscribe<BattleEndedEvent>(OnBattleEnded);
+            _eventBus.Subscribe<BattleStartedEvent>(OnBattleStarted);
+            _eventBus.Subscribe<UnitRegisteredEvent>(OnUnitRegistered);
+            _eventBus.Subscribe<TurnStartedEvent>(OnTurnStarted);
+            _eventBus.Subscribe<AttackExecutedEvent>(OnAttackExecuted);
+            _eventBus.Subscribe<HealthChangedEvent>(OnHealthChanged);
+            _eventBus.Subscribe<UnitDefeatedEvent>(OnUnitDefeated);
+            _eventBus.Subscribe<BattleEndedEvent>(OnBattleEnded);
         }
 
         private void OnDisable()
         {
-            if (_bus == null) return;
+            if (_eventBus == null) return;
 
-            _bus.Unsubscribe<BattleStartedEvent>(OnBattleStarted);
-            _bus.Unsubscribe<UnitRegisteredEvent>(OnUnitRegistered);
-            _bus.Unsubscribe<TurnStartedEvent>(OnTurnStarted);
-            _bus.Unsubscribe<AttackExecutedEvent>(OnAttackExecuted);
-            _bus.Unsubscribe<HealthChangedEvent>(OnHealthChanged);
-            _bus.Unsubscribe<UnitDefeatedEvent>(OnUnitDefeated);
-            _bus.Unsubscribe<BattleEndedEvent>(OnBattleEnded);
+            _eventBus.Unsubscribe<BattleStartedEvent>(OnBattleStarted);
+            _eventBus.Unsubscribe<UnitRegisteredEvent>(OnUnitRegistered);
+            _eventBus.Unsubscribe<TurnStartedEvent>(OnTurnStarted);
+            _eventBus.Unsubscribe<AttackExecutedEvent>(OnAttackExecuted);
+            _eventBus.Unsubscribe<HealthChangedEvent>(OnHealthChanged);
+            _eventBus.Unsubscribe<UnitDefeatedEvent>(OnUnitDefeated);
+            _eventBus.Unsubscribe<BattleEndedEvent>(OnBattleEnded);
 
-            if (_input != null)
+            if (_playerInput != null)
             {
-                _input.OnWindowOpened -= OnInputWindowOpened;
-                _input.OnWindowClosed -= OnInputWindowClosed;
+                _playerInput.OnWindowOpened -= OnInputWindowOpened;
+                _playerInput.OnWindowClosed -= OnInputWindowClosed;
             }
         }
 
         // BattleStarted fires after all Awake/Start — safe to resolve PlayerInputHandler here.
-        private void OnBattleStarted(BattleStartedEvent e)
+        private void OnBattleStarted(BattleStartedEvent battleStartedEvent)
         {
-            if (ServiceLocator.TryGet<PlayerInputHandler>(out _input))
+            if (ServiceLocator.TryGet<PlayerInputHandler>(out _playerInput))
             {
-                _input.OnWindowOpened += OnInputWindowOpened;
-                _input.OnWindowClosed += OnInputWindowClosed;
+                _playerInput.OnWindowOpened += OnInputWindowOpened;
+                _playerInput.OnWindowClosed += OnInputWindowClosed;
             }
             resultOverlay?.SetActive(false);
             AddLog("Battle started!");
         }
 
-        private void OnUnitRegistered(UnitRegisteredEvent e)
+        private void OnUnitRegistered(UnitRegisteredEvent unitRegisteredEvent)
         {
-            var unit = e.Unit;
-            var panel = unit.Team == TeamId.Player ? playerHpPanel : enemyHpPanel;
+            var combatUnit = unitRegisteredEvent.Unit;
+            var panel = combatUnit.Team == TeamId.Player ? playerHpPanel : enemyHpPanel;
             if (panel == null || healthBarPrefab == null) return;
 
             var go = Instantiate(healthBarPrefab, panel);
-            go.name = "HP_" + unit.Name;
+            go.name = "HP_" + combatUnit.Name;
             var slider = go.GetComponentInChildren<Slider>();
             var label = go.GetComponentInChildren<TMP_Text>();
-            var color = unit.Team == TeamId.Player ? _playerColor : _enemyColor;
+            var color = combatUnit.Team == TeamId.Player ? _playerColor : _enemyColor;
 
             if (slider != null)
             {
-                slider.maxValue = unit.Stats.MaxHealth;
-                slider.value = unit.CurrentHealth;
+                slider.maxValue = combatUnit.Stats.MaxHealth;
+                slider.value = combatUnit.CurrentHealth;
                 SetFillColor(slider, color);
-                _sliders[unit.Name] = slider;
+                _sliders[combatUnit.Name] = slider;
             }
             if (label != null)
             {
-                label.text = HpText(unit);
-                _hpLabels[unit.Name] = label;
+                label.text = HpText(combatUnit);
+                _hpLabels[combatUnit.Name] = label;
             }
         }
 
-        private void OnTurnStarted(TurnStartedEvent e)
+        private void OnTurnStarted(TurnStartedEvent turnStartedEvent)
         {
             if (turnLabel == null) return;
-            string side = e.Unit.Team == TeamId.Player ? "Your turn" : "Enemy turn";
-            turnLabel.text = $"{e.Unit.Name}  |  {side}  |  Turn {e.Turn}";
+            string side = turnStartedEvent.Unit.Team == TeamId.Player ? "Your turn" : "Enemy turn";
+            turnLabel.text = $"{turnStartedEvent.Unit.Name}  |  {side}  |  Turn {turnStartedEvent.Turn}";
         }
 
-        private void OnAttackExecuted(AttackExecutedEvent e)
+        private void OnAttackExecuted(AttackExecutedEvent attackExecutedEvent)
         {
-            var r = e.Result;
-            AddLog($"[Attack] {r.Attacker?.Name} attacked {r.Defender?.Name}, dealing {r.Damage} damage. " +
-                               $"{(r.IsMiss ? "The attack missed!" : r.IsCrit ? "Critical hit!" : "")}");
+            var attackResult = attackExecutedEvent.Result;
+            AddLog($"[Attack] {attackResult.Attacker?.Name} attacked {attackResult.Defender?.Name}, dealing {attackResult.Damage} damage. " +
+                               $"{(attackResult.IsMiss ? "The attack missed!" : attackResult.IsCrit ? "Critical hit!" : "")}");
         }
 
-        private void OnHealthChanged(HealthChangedEvent e) => RefreshBar(e.Unit);
+        private void OnHealthChanged(HealthChangedEvent healthChangedEvent) => RefreshBar(healthChangedEvent.Unit);
 
-        private void OnUnitDefeated(UnitDefeatedEvent e)
+        private void OnUnitDefeated(UnitDefeatedEvent unitDefeatedEvent)
         {
-            RefreshBar(e.Unit);
-            AddLog($"{e.Unit.Name} defeated!");
+            RefreshBar(unitDefeatedEvent.Unit);
+            AddLog($"{unitDefeatedEvent.Unit.Name} defeated!");
         }
 
-        private void OnBattleEnded(BattleEndedEvent e)
+        private void OnBattleEnded(BattleEndedEvent battleEndedEvent)
         {
             SetActionPanel(false);
             if (resultOverlay == null) return;
             resultOverlay.SetActive(true);
-            bool won = e.Outcome == BattleOutcome.PlayerVictory;
+            bool won = battleEndedEvent.Outcome == BattleOutcome.PlayerVictory;
             if (resultTitle != null) resultTitle.text = won ? "VICTORY!" : "DEFEAT";
             if (resultSub != null) resultSub.text = won ? "All enemies defeated!" : "Your team was wiped out.";
         }
@@ -172,7 +172,7 @@ namespace DinosBattle.UI
 
         private void BuildAbilityButtons(CombatUnit unit)
         {
-            foreach (var b in _abilityBtns) if (b) Destroy(b);
+            foreach (var abilityButton in _abilityBtns) if (abilityButton) Destroy(abilityButton);
             _abilityBtns.Clear();
             if (abilityContainer == null || abilityButtonPrefab == null) return;
 
@@ -191,7 +191,7 @@ namespace DinosBattle.UI
                 {
                     btn.interactable = !onCD;
                     int idx = i;
-                    btn.onClick.AddListener(() => _input?.SubmitAbility(idx));
+                    btn.onClick.AddListener(() => _playerInput?.SubmitAbility(idx));
                 }
             }
         }

@@ -33,7 +33,7 @@ namespace DinosBattle
             owner.TakeDamage(dmg);
             if (!owner.IsAlive) ServiceLocator.Get<EventBus>().Publish(new UnitDefeatedEvent(owner));
             ServiceLocator.Get<EventBus>().Publish(new HealthChangedEvent(owner));
-            Debug.Log($"[Poison] {owner.Name} took {dmg} dmg.");
+            Debug.Log($"[Poison] {owner.Name} took {dmg} damage.");
             base.OnTurnEnd(owner);
         }
     }

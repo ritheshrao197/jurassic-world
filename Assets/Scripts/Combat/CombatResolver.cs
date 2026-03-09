@@ -3,8 +3,13 @@ using UnityEngine;
 
 namespace DinosBattle.Combat
 {
-
-    // Resolves an attack: select target → calculate → apply damage → publish event.
+/// <summary>
+/// The CombatResolver is responsible for resolving attacks: selecting targets, calculating damage, applying it, and publishing relevant events.
+/// This centralizes combat logic and ensures consistent handling of attacks across different abilities and AI strategies.
+/// It uses an IDamageCalculator to compute damage based on attacker and defender stats, and an ITargetSelector to determine which enemy to target (e.g., lowest HP).
+/// When an attack is resolved, it checks for misses, applies damage to the target, and publishes events for the attack execution, health changes, and unit defeats. This allows other systems (like
+/// the UI) to react accordingly. The ResolveAttack method targets a single enemy based on the selector, while ResolveAttackOn allows specifying an exact target.
+/// </summary>
     public class CombatResolver
     {
         private readonly IDamageCalculator _damageCalculator;
