@@ -184,7 +184,7 @@ namespace DinosBattle.UI
                 _abilityBtns.Add(go);
 
                 var label = go.GetComponentInChildren<TMP_Text>();
-                if (label != null) label.text = onCD ? $"{ability.Name}\n(CD)" : ability.Name;
+                if (label != null) label.text = onCD ? $"{ability.Name}\n(Cooling down)" : ability.Name;
 
                 var btn = go.GetComponent<Button>();
                 if (btn != null)
