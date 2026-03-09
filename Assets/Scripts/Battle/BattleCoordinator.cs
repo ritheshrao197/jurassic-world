@@ -56,7 +56,12 @@ namespace DinosBattle
         }
 
         // ── Battle Loop ───────────────────────────────────────────────────────
-
+/// <summary>
+/// The RunBattle method orchestrates the entire battle sequence, starting with the setup phase where player and enemy units are created and registered. It then enters a loop that continues until the battle is over, determined by the win condition checks. Each iteration of the loop represents a turn for a combat unit, where it processes status effects, checks for stun conditions, and determines whether to get player input or execute enemy AI commands. After executing the chosen command, it checks for win conditions before advancing to the next turn. This method ensures a structured flow of combat while allowing for dynamic interactions based on player choices and enemy behavior.
+/// The method begins by calling the Setup method to initialize the battle state, including creating combat units for both teams and registering them with the event bus. It then publishes a BattleStartedEvent and notifies the GameStateManager that the battle has begun. The main loop continues until the _over flag is set to true, which occurs when a win condition is met. Within each turn, it processes status effects for the current unit, checks for stun conditions, and either waits for player input or executes enemy AI commands. After executing the command, it checks for win conditions again before advancing to the next turn. This structured approach ensures a cohesive and engaging battle experience while maintaining clear separation of concerns between different systems.
+/// The RunBattle method is designed to be a coroutine, allowing it to yield execution at various points to create a more dynamic and responsive battle flow. It handles the timing of enemy actions and player input, ensuring that the battle feels engaging and interactive. By structuring the battle loop in this way, it provides a clear and maintainable framework for managing the complex interactions that can occur during combat, while also allowing for flexibility in how commands are executed and how win conditions are checked.
+/// </summary>
+/// <returns></returns>
         private IEnumerator RunBattle()
         {
             yield return Setup();
@@ -65,14 +70,14 @@ namespace DinosBattle
 
             while (!_over)
             {
-                var unit = _turns.Current;
+                var unit = _turns.CurrentCombatant;
                 if (unit == null || !unit.IsAlive) { _turns.Advance(); yield return null; continue; }
 
                 _turn++;
                 _bus.Publish(new TurnStartedEvent(unit, _turn));
                 Debug.Log($"[Turn {_turn}] {unit.Name} ({unit.Team}) — HP: {unit.CurrentHealth}/{unit.Stats.MaxHealth}");
 
-                unit.TickStatusEffects(true);
+                unit.UpdateStatusEffects(true);
                 if (_over) break;
 
                 if (unit.HasStatus(StatusEffectType.Stun))
@@ -108,8 +113,8 @@ namespace DinosBattle
 
         private void EndTurn(CombatUnit unit)
         {
-            unit.TickStatusEffects(false);
-            unit.TickCooldowns();
+            unit.UpdateStatusEffects(false);
+            unit.UpdateCooldowns();
             if (!_over) _turns.Advance();
         }
 

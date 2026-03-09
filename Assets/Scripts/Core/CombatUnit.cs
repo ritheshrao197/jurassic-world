@@ -11,7 +11,7 @@ namespace DinosBattle
     {
         public string      Name          { get; }
         public TeamId      Team          { get; }
-        public StatBlock   Stats         { get; }
+        public CombatStatistics   Stats         { get; }
         public int         CurrentHealth { get; private set; }
         public bool        IsAlive       => CurrentHealth > 0;
         public float       HealthPercent => (float)CurrentHealth / Stats.MaxHealth;
@@ -24,7 +24,7 @@ namespace DinosBattle
 
         public IReadOnlyList<IAbility> Abilities => _abilities;
 
-        public CombatUnit(string name, TeamId team, StatBlock stats)
+        public CombatUnit(string name, TeamId team, CombatStatistics stats)
         {
             Name          = name;
             Team          = team;
@@ -58,7 +58,7 @@ namespace DinosBattle
         public bool HasStatus(StatusEffectType type) =>
             _statusEffects.Any(e => e.Type == type && !e.IsExpired);
 
-        public void TickStatusEffects(bool isTurnStart)
+        public void UpdateStatusEffects(bool isTurnStart)
         {
             foreach (var e in _statusEffects)
             {
@@ -79,7 +79,7 @@ namespace DinosBattle
 
         public void SetCooldown(string name, int turns) => _cooldowns[name] = turns;
 
-        public void TickCooldowns()
+        public void UpdateCooldowns()
         {
             foreach (var key in new List<string>(_cooldowns.Keys))
                 if (_cooldowns[key] > 0) _cooldowns[key]--;

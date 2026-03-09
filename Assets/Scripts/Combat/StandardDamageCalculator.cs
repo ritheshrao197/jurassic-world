@@ -9,9 +9,9 @@ namespace DinosBattle.Combat
         {
             float baseDmg = (attacker.Stats.Attack - defender.Stats.Defense * 0.5f) * powerMult;
             int   raw     = Mathf.Max(1, Mathf.RoundToInt(baseDmg * Random.Range(0.9f, 1.1f)));
-            bool  isCrit  = Random.value < attacker.Stats.CritChance;
-            int   final   = isCrit ? Mathf.RoundToInt(raw * attacker.Stats.CritMultiplier) : raw;
-            return new DamageResult(attacker, defender, final, isCrit, false);
+            bool  isCritical  = Random.value < attacker.Stats.CriticalChance;
+            int   final   = isCritical ? Mathf.RoundToInt(raw * attacker.Stats.CriticalMultiplier) : raw;
+            return new DamageResult(attacker, defender, final, isCritical, false);
         }
     }
 }

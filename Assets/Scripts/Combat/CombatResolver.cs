@@ -7,24 +7,24 @@ namespace DinosBattle.Combat
     // Resolves an attack: select target → calculate → apply damage → publish event.
     public class CombatResolver
     {
-        private readonly IDamageCalculator _calc;
-        private readonly ITargetSelector   _selector;
-        private readonly EventBus          _bus;
+        private readonly IDamageCalculator _damageCalculator;
+        private readonly ITargetSelector _targetSelector;
+        private readonly EventBus _bus;
 
         public CombatResolver(IDamageCalculator calc, ITargetSelector selector, EventBus bus)
         {
-            _calc     = calc;
-            _selector = selector;
-            _bus      = bus;
+            _damageCalculator = calc;
+            _targetSelector = selector;
+            _bus = bus;
         }
 
         public DamageResult? ResolveAttack(CombatUnit attacker, IReadOnlyList<CombatUnit> enemies,
                                             float powerMult = 1f, DamageType type = DamageType.Physical)
         {
-            var target = _selector.SelectOne(attacker, enemies);
+            var target = _targetSelector.SelectOne(attacker, enemies);
             if (target == null) return null;
 
-            var result = _calc.Calculate(attacker, target, powerMult, type);
+            var result = _damageCalculator.Calculate(attacker, target, powerMult, type);
             if (!result.IsMiss)
             {
                 target.TakeDamage(result.Damage);
@@ -40,7 +40,7 @@ namespace DinosBattle.Combat
         public DamageResult ResolveAttackOn(CombatUnit attacker, CombatUnit defender,
                                              float powerMult = 1f, DamageType type = DamageType.Physical)
         {
-            var result = _calc.Calculate(attacker, defender, powerMult, type);
+            var result = _damageCalculator.Calculate(attacker, defender, powerMult, type);
             if (!result.IsMiss)
             {
                 defender.TakeDamage(result.Damage);

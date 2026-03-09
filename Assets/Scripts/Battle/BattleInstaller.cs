@@ -23,7 +23,7 @@ namespace DinosBattle
             ServiceLocator.Register(selector);
             ServiceLocator.Register<IDamageCalculator>(new StandardDamageCalculator());
             ServiceLocator.Register(new CombatResolver(
-                ServiceLocator.Get<IDamageCalculator>(), selector, bus));
+            ServiceLocator.Get<IDamageCalculator>(), selector, bus));
             ServiceLocator.Register(new TurnSystem());
             ServiceLocator.Register(new UnitFactory());
             ServiceLocator.Register(GetOrAdd<PlayerInputHandler>());

@@ -18,8 +18,8 @@ namespace DinosBattle.Data
         [Range(0f, 1f)] public float critChance     = 0.10f;
         [Range(1f, 3f)] public float critMultiplier = 1.50f;
 
-        public StatBlock ToStatBlock() =>
-            new StatBlock(maxHealth, attack, defense, speed, critChance, critMultiplier);
+        public CombatStatistics ToStatBlock() =>
+            new CombatStatistics(maxHealth, attack, defense, speed, critChance, critMultiplier);
 
         private void OnValidate()
         {
