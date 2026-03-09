@@ -3902,7 +3902,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &627445829
 RectTransform:
   m_ObjectHideFlags: 0
@@ -4775,7 +4775,7 @@ MonoBehaviour:
     m_Right: 0
     m_Top: 0
     m_Bottom: 0
-  m_ChildAlignment: 3
+  m_ChildAlignment: 4
   m_Spacing: 0
   m_ChildForceExpandWidth: 1
   m_ChildForceExpandHeight: 1
@@ -5341,6 +5341,7 @@ GameObject:
   - component: {fileID: 764330514}
   - component: {fileID: 764330516}
   - component: {fileID: 764330515}
+  - component: {fileID: 764330517}
   m_Layer: 5
   m_Name: 'ActionPanel '
   m_TagString: Untagged
@@ -5408,6 +5409,18 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 764330513}
   m_CullTransparentMesh: 1
+--- !u!225 &764330517
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 764330513}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1001 &770603222
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -12188,7 +12201,7 @@ MonoBehaviour:
   turnLabel: {fileID: 1480967121}
   battleLog: {fileID: 1196153346}
   maxLogLines: 5
-  actionPanel: {fileID: 764330513}
+  actionPanel: {fileID: 764330517}
   attackButton: {fileID: 1635559379}
   abilityContainer: {fileID: 687881884}
   abilityButtonPrefab: {fileID: 3922066797774122992, guid: ae4f4a39b172691468e36d2a20c4be2e, type: 3}

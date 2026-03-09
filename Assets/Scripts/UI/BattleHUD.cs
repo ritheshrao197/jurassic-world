@@ -21,7 +21,7 @@ namespace DinosBattle.UI
         [SerializeField] private int             maxLogLines = 10;
 
         [Header("Action Panel")]
-        [SerializeField] private GameObject      actionPanel;
+        [SerializeField] private CanvasGroup      actionPanel;
         [SerializeField] private Button          attackButton;
         [SerializeField] private Transform       abilityContainer;
         [SerializeField] private GameObject      abilityButtonPrefab;
@@ -206,7 +206,7 @@ namespace DinosBattle.UI
             if (_hpLabels.TryGetValue(unit.Name, out var l)) l.text = HpText(unit);
         }
 
-        private void SetActionPanel(bool on) { if (actionPanel) actionPanel.SetActive(on); }
+        private void SetActionPanel(bool isInteractable) {  actionPanel.interactable=   isInteractable; }
 
         private void AddLog(string line)
         {

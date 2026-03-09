@@ -21,6 +21,7 @@ namespace DinosBattle
                 resolver.ResolveAttackOn(user, t, 0.6f);
                 yield return new WaitForSeconds(0.1f);
             }
+            Debug.Log($"[Ability] {user.Name} used {Name} on all enemies, dealing damage.");
         }
     }
 }
