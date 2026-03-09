@@ -7252,7 +7252,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &1089797585
 RectTransform:
   m_ObjectHideFlags: 0
@@ -13144,6 +13144,8 @@ GameObject:
   m_Component:
   - component: {fileID: 2028948987}
   - component: {fileID: 2028948988}
+  - component: {fileID: 2028948990}
+  - component: {fileID: 2028948989}
   m_Layer: 5
   m_Name: 'PauseMenuScreen '
   m_TagString: Untagged
@@ -13179,6 +13181,35 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2028948986}
   m_CullTransparentMesh: 1
+--- !u!225 &2028948989
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2028948986}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
+--- !u!114 &2028948990
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2028948986}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dd7f092796997b1489a1e88f8730254a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  pausePanel: {fileID: 1089797584}
+  panelGroup: {fileID: 2028948989}
+  resumeButton: {fileID: 1442025681}
+  mainMenuButton: {fileID: 550846420}
+  quitButton: {fileID: 1755240880}
 --- !u!1001 &2033868598
 PrefabInstance:
   m_ObjectHideFlags: 0

@@ -31,12 +31,6 @@ namespace DinosBattle.UI.Screens
                 versionLabel.text = $"v{Application.version}";
         }
 
-        private void Start()
-        {
-            // Fade in on scene load
-            if (rootGroup != null)
-                StartCoroutine(FadeIn());
-        }
 
         private void OnPlayClicked()
         {
@@ -49,17 +43,6 @@ namespace DinosBattle.UI.Screens
             GameStateManager.Instance?.QuitGame();
         }
 
-        private System.Collections.IEnumerator FadeIn()
-        {
-            rootGroup.alpha = 0f;
-            float t = 0f;
-            while (t < 0.6f)
-            {
-                rootGroup.alpha = t / 0.6f;
-                t += Time.unscaledDeltaTime;
-                yield return null;
-            }
-            rootGroup.alpha = 1f;
-        }
+    
     }
 }

@@ -38,19 +38,19 @@ namespace DinosBattle.UI.Screens
                 GameStateManager.Instance.OnStateChanged -= OnGameStateChanged;
         }
 
-        private void Update()
-        {
-            // Escape key toggles pause from anywhere in battle
-            if (UnityEngine.Input.GetKeyDown(KeyCode.Escape) &&
-                GameStateManager.Instance != null &&
-                GameStateManager.Instance.IsInBattle)
-            {
-                if (GameStateManager.Instance.IsPaused)
-                    OnResumeClicked();
-                else
-                    OnPauseRequested();
-            }
-        }
+        // private void Update()
+        // {
+        //     // Escape key toggles pause from anywhere in battle
+        //     if (UnityEngine.Input.GetKeyDown(KeyCode.Escape) &&
+        //         GameStateManager.Instance != null &&
+        //         GameStateManager.Instance.IsInBattle)
+        //     {
+        //         if (GameStateManager.Instance.IsPaused)
+        //             OnResumeClicked();
+        //         else
+        //             OnPauseRequested();
+        //     }
+        // }
 
         // ── Button handlers ───────────────────────────────────────────────────
 
@@ -108,7 +108,7 @@ namespace DinosBattle.UI.Screens
         {
             float start   = panelGroup.alpha;
             float elapsed = 0f;
-            float duration = 0.15f;
+            float duration = 0.25f;
 
             while (elapsed < duration)
             {
